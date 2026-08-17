@@ -1,0 +1,8 @@
+[Unit]
+Description=MegaRAID and SMART health check
+Documentation=https://github.com/miyabi-inoue/megaraid-check
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/megaraid-check
+SuccessExitStatus=1

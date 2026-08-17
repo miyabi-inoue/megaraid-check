@@ -1,0 +1,22 @@
+# Runtime
+megaraid_check.conf
+state.json
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Eclipse / PyDev
+.project
+.pydevproject
+.settings/
+
+# RPM build artifacts
+*.rpm
+*.src.rpm
+*.tar.gz
+
+# Editor / temporary files
+*~
+*.swp

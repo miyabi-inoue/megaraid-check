@@ -1,0 +1,3 @@
+# /etc/cron.d/megaraid_check の例
+# 正常時のstdoutは破棄し、スクリプト自身の異常(stderr)だけcronメールへ流します。
+00 01 * * * root /usr/local/sbin/megaraid_check.py > /dev/null

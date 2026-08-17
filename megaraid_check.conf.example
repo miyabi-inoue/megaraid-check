@@ -1,0 +1,29 @@
+[commands]
+# 環境に合わせて実際のコマンドパスへ変更してください。
+megacli = /usr/bin/MegaCli
+smartctl = /usr/sbin/smartctl
+lsblk = /usr/bin/lsblk
+mail = /usr/bin/mail
+
+[raid]
+# 空欄の場合、lsblk --json --output NAME,TYPE,MODEL で論理RAIDデバイスを自動検出します。
+# 自動検出できない場合のみ /dev/sda,/dev/sdb のようにカンマ区切りで指定してください。
+devices =
+model_pattern = RAID.*SAS|MegaRAID|MR\d+
+
+# | 区切りで正常とみなすPhysical DriveのFirmware stateを指定します。
+allowed_firmware_states = Online, Spun Up|Hotspare, Spun Up
+
+[eventlog]
+# MegaCli Event Logから確認する最新イベント数
+history = 500
+
+# falseの場合、初回実行時は過去イベントを通知せず最新seqNumだけを記録します。
+notify_on_first_run = false
+
+[paths]
+state_file = /var/lib/megaraid-check/state.json
+
+[mail]
+# mailコマンドの宛先
+address = root
