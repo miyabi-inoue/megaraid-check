@@ -12,6 +12,8 @@ URL:            https://github.com/miyabi-inoue/megaraid-check
 Source0:        %{base_name}-%{version}.tar.gz
 
 BuildArch:      noarch
+BuildRequires:  systemd-rpm-macros
+
 Requires:       python3, smartmontools, util-linux, systemd
 
 Packager:       miyabi

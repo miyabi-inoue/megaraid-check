@@ -38,8 +38,12 @@ jobs:
               dnf -y install \
                 rpm-build \
                 rpmdevtools \
+                systemd-rpm-macros \
                 tar \
                 gzip
+
+              echo "unitdir: $(rpm --eval "%{_unitdir}")"
+              echo "dist: $(rpm --eval "%{?dist}")"
 
               rpmdev-setuptree
 
