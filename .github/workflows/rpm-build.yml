@@ -171,7 +171,7 @@ jobs:
             artifacts/el8/*.noarch.rpm \
             artifacts/el9/*.noarch.rpm
           do
-            rpm --checksig "$rpm_file"
+            rpm --checksig --verbose "$rpm_file"
           done
 
       - name: Upload RPMs to GitHub Release
