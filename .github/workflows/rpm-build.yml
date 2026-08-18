@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-rpm:
@@ -73,3 +73,35 @@ jobs:
         with:
           name: megaraid-check-el${{ matrix.el }}
           path: artifacts/el${{ matrix.el }}/
+
+  upload-release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs:
+      - build-rpm
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download EL8 RPM artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: megaraid-check-el8
+          path: artifacts/el8
+
+      - name: Download EL9 RPM artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: megaraid-check-el9
+          path: artifacts/el9
+
+      - name: Show release files
+        run: find artifacts -type f -print
+
+      - name: Upload RPMs to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" \
+            artifacts/el8/*.noarch.rpm \
+            artifacts/el9/*.noarch.rpm \
+            --clobber
