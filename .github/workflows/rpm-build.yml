@@ -104,4 +104,5 @@ jobs:
           gh release upload "${GITHUB_REF_NAME}" \
             artifacts/el8/*.noarch.rpm \
             artifacts/el9/*.noarch.rpm \
+            --repo "${GITHUB_REPOSITORY}" \
             --clobber
