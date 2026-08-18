@@ -63,6 +63,37 @@ command -v MegaCli64
 sudo dnf install ./megaraid-check-1.0.0-1.el9.noarch.rpm
 ```
 
+### 署名検証手順
+
+公開鍵のインストール
+
+```bash
+curl -L \
+  -o RPM-GPG-KEY-miyabi \
+  https://github.com/miyabi-inoue/megaraid-check/raw/refs/heads/master/keys/RPM-GPG-KEY-miyabi
+sudo rpm --import RPM-GPG-KEY-miyabi
+```
+
+署名の検証
+
+```bash
+rpm --checksig --verbose \
+  megaraid-check-1.0.0-1.el9.noarch.rpm
+```
+
+結果に下記が表示されれば問題ありません。
+
+```
+Header V4 RSA/SHA256 Signature, key ID 50b0e2d1: OK
+```
+
+
+公開鍵のfingerprint
+
+```
+57EB2BB795EEE67F502A4856D395EB9850B0E2D1
+```
+
 ## 初期設定
 
 必要に応じて `/etc/megaraid-check/megaraid_check.conf` を修正します。
