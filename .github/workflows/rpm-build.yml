@@ -74,7 +74,7 @@ jobs:
           name: megaraid-check-el${{ matrix.el }}
           path: artifacts/el${{ matrix.el }}/
 
-  upload-release:
+  sign-and-upload-release:
     if: startsWith(github.ref, 'refs/tags/')
     needs:
       - build-rpm
@@ -97,82 +97,73 @@ jobs:
           name: megaraid-check-el9
           path: artifacts/el9
 
-      - name: Show release files
-        run: find artifacts -type f -print
-
-      - name: Install RPM signing tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y rpm gnupg
-
-      - name: Import RPM signing key
+      - name: Sign and verify RPMs
         env:
           RPM_GPG_PRIVATE_KEY: ${{ secrets.RPM_GPG_PRIVATE_KEY }}
-        run: |
-          printf '%s\n' "$RPM_GPG_PRIVATE_KEY" | \
-            gpg --batch --import
-
-      - name: Configure RPM signing
-        env:
-          RPM_GPG_KEY_ID: ${{ secrets.RPM_GPG_KEY_ID }}
-        run: |
-          cat > ~/.rpmmacros <<EOF
-          %_signature gpg
-          %_gpg_name ${RPM_GPG_KEY_ID}
-          %__gpg /usr/bin/gpg
-          EOF
-
-      - name: Sign RPM packages
-        env:
           RPM_GPG_PASSPHRASE: ${{ secrets.RPM_GPG_PASSPHRASE }}
           RPM_GPG_KEY_ID: ${{ secrets.RPM_GPG_KEY_ID }}
         run: |
-          mkdir -p ~/.gnupg
-          chmod 700 ~/.gnupg
+          docker run --rm \
+            -e RPM_GPG_PRIVATE_KEY \
+            -e RPM_GPG_PASSPHRASE \
+            -e RPM_GPG_KEY_ID \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            -w /workspace \
+            rockylinux:9 \
+            /bin/bash -c '
+              set -e
 
-          cat > ~/.gnupg/gpg.conf <<'EOF'
-          pinentry-mode loopback
-          batch
-          EOF
+              dnf -y install \
+                rpm-sign \
+                gnupg2
 
-          cat > ~/.gnupg/gpg-agent.conf <<'EOF'
-          allow-loopback-pinentry
-          EOF
+              mkdir -p ~/.gnupg
+              chmod 700 ~/.gnupg
 
-          gpgconf --kill gpg-agent
+              printf "%s\n" "$RPM_GPG_PRIVATE_KEY" | \
+                gpg --batch --import
 
-          printf '%s\n' "$RPM_GPG_PASSPHRASE" | \
-            gpg \
-              --batch \
-              --yes \
-              --pinentry-mode loopback \
-              --passphrase-fd 0 \
-              --local-user "$RPM_GPG_KEY_ID" \
-              --detach-sign \
-              --output "$RUNNER_TEMP/gpg-unlock.sig" \
-              /dev/null
+              printf "%s\n" \
+                "%_signature gpg" \
+                "%_gpg_name ${RPM_GPG_KEY_ID}" \
+                "%__gpg /usr/bin/gpg" \
+                > ~/.rpmmacros
 
-          rm -f "$RUNNER_TEMP/gpg-unlock.sig"
+              printf "%s\n" \
+                "allow-loopback-pinentry" \
+                > ~/.gnupg/gpg-agent.conf
 
-          for rpm_file in \
-            artifacts/el8/*.noarch.rpm \
-            artifacts/el9/*.noarch.rpm
-          do
-            rpmsign --addsign "$rpm_file"
-          done
+              gpgconf --kill gpg-agent
 
-      - name: Import public RPM key
-        run: |
-          sudo rpm --import keys/RPM-GPG-KEY-miyabi
+              printf "%s\n" "$RPM_GPG_PASSPHRASE" | \
+                gpg \
+                  --batch \
+                  --yes \
+                  --pinentry-mode loopback \
+                  --passphrase-fd 0 \
+                  --local-user "$RPM_GPG_KEY_ID" \
+                  --detach-sign \
+                  --output /tmp/unlock.sig \
+                  /dev/null
 
-      - name: Verify RPM signatures
-        run: |
-          for rpm_file in \
-            artifacts/el8/*.noarch.rpm \
-            artifacts/el9/*.noarch.rpm
-          do
-            rpm --checksig --verbose "$rpm_file"
-          done
+              rm -f /tmp/unlock.sig
+
+              for rpm_file in \
+                artifacts/el8/*.noarch.rpm \
+                artifacts/el9/*.noarch.rpm
+              do
+                rpmsign --addsign "$rpm_file"
+              done
+
+              rpm --import keys/RPM-GPG-KEY-miyabi
+
+              for rpm_file in \
+                artifacts/el8/*.noarch.rpm \
+                artifacts/el9/*.noarch.rpm
+              do
+                rpm --checksig --verbose "$rpm_file"
+              done
+            '
 
       - name: Upload RPMs to GitHub Release
         env:
