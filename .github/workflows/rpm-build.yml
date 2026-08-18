@@ -1,0 +1,71 @@
+name: RPM build
+
+on:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-rpm:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        el:
+          - 8
+          - 9
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Build RPM for EL${{ matrix.el }}
+        run: |
+          docker run --rm \
+            -e VERSION="${GITHUB_REF_NAME}" \
+            -e GITHUB_REPOSITORY="${GITHUB_REPOSITORY}" \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            -w /workspace \
+            rockylinux:${{ matrix.el }} \
+            /bin/bash -c '
+              set -e
+
+              dnf -y install \
+                rpm-build \
+                rpmdevtools \
+                curl \
+                tar \
+                gzip
+
+              rpmdev-setuptree
+
+              echo "%_buildhost localhost" > ~/.rpmmacros
+
+              curl -L \
+                -o ~/rpmbuild/SOURCES/megaraid-check-${VERSION}.tar.gz \
+                https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${VERSION}.tar.gz
+
+              cp packaging/rpm/megaraid-check.spec \
+                ~/rpmbuild/SPECS/
+
+              rpmbuild -ba \
+                ~/rpmbuild/SPECS/megaraid-check.spec
+
+              mkdir -p /workspace/artifacts/el${{ matrix.el }}
+
+              cp ~/rpmbuild/RPMS/noarch/*.rpm \
+                /workspace/artifacts/el${{ matrix.el }}/
+
+              cp ~/rpmbuild/SRPMS/*.src.rpm \
+                /workspace/artifacts/el${{ matrix.el }}/
+            '
+
+      - name: Upload RPM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: megaraid-check-el${{ matrix.el }}
+          path: artifacts/el${{ matrix.el }}/
