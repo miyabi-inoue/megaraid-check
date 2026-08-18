@@ -82,6 +82,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
       - name: Download EL8 RPM artifacts
         uses: actions/download-artifact@v5
         with:
@@ -96,6 +99,80 @@ jobs:
 
       - name: Show release files
         run: find artifacts -type f -print
+
+      - name: Install RPM signing tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm gnupg
+
+      - name: Import RPM signing key
+        env:
+          RPM_GPG_PRIVATE_KEY: ${{ secrets.RPM_GPG_PRIVATE_KEY }}
+        run: |
+          printf '%s\n' "$RPM_GPG_PRIVATE_KEY" | \
+            gpg --batch --import
+
+      - name: Configure RPM signing
+        env:
+          RPM_GPG_KEY_ID: ${{ secrets.RPM_GPG_KEY_ID }}
+        run: |
+          cat > ~/.rpmmacros <<EOF
+          %_signature gpg
+          %_gpg_name ${RPM_GPG_KEY_ID}
+          %__gpg /usr/bin/gpg
+          EOF
+
+      - name: Sign RPM packages
+        env:
+          RPM_GPG_PASSPHRASE: ${{ secrets.RPM_GPG_PASSPHRASE }}
+          RPM_GPG_KEY_ID: ${{ secrets.RPM_GPG_KEY_ID }}
+        run: |
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
+
+          cat > ~/.gnupg/gpg.conf <<'EOF'
+          pinentry-mode loopback
+          batch
+          EOF
+
+          cat > ~/.gnupg/gpg-agent.conf <<'EOF'
+          allow-loopback-pinentry
+          EOF
+
+          gpgconf --kill gpg-agent
+
+          printf '%s\n' "$RPM_GPG_PASSPHRASE" | \
+            gpg \
+              --batch \
+              --yes \
+              --pinentry-mode loopback \
+              --passphrase-fd 0 \
+              --local-user "$RPM_GPG_KEY_ID" \
+              --detach-sign \
+              --output "$RUNNER_TEMP/gpg-unlock.sig" \
+              /dev/null
+
+          rm -f "$RUNNER_TEMP/gpg-unlock.sig"
+
+          for rpm_file in \
+            artifacts/el8/*.noarch.rpm \
+            artifacts/el9/*.noarch.rpm
+          do
+            rpmsign --addsign "$rpm_file"
+          done
+
+      - name: Import public RPM key
+        run: |
+          sudo rpm --import keys/RPM-GPG-KEY-miyabi
+
+      - name: Verify RPM signatures
+        run: |
+          for rpm_file in \
+            artifacts/el8/*.noarch.rpm \
+            artifacts/el9/*.noarch.rpm
+          do
+            rpm --checksig "$rpm_file"
+          done
 
       - name: Upload RPMs to GitHub Release
         env:

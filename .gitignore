@@ -16,6 +16,7 @@ __pycache__/
 *.rpm
 *.src.rpm
 *.tar.gz
+*-private-key.asc
 
 # Editor / temporary files
 *~
